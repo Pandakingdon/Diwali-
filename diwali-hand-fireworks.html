@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Diwali Hand Fireworks</title>
+<style>
+html,body{margin:0;height:100%;background:#0b0710;overflow:hidden;font-family:system-ui,sans-serif;color:#ffe9b0}
+video,canvas{position:fixed;inset:0;width:100%;height:100%}
+video{object-fit:cover;transform:scaleX(-1);filter:saturate(1.1) brightness(.85)}
+#fx{pointer-events:none}
+#start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:radial-gradient(#3a1408,#0b0710);text-align:center;padding:24px;z-index:5}
+#start h1{font-size:clamp(32px,7vw,64px);margin:0;color:#ffcf5a;text-shadow:0 0 24px #ff7a00}
+#start button{font-size:20px;padding:14px 32px;border:0;border-radius:40px;background:#ffb300;color:#3a1408;font-weight:700}
+#msg{max-width:420px;opacity:.85}
+#bar{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:6px;padding:8px 12px;border-radius:30px;background:rgba(40,12,6,.75);border:1px solid #ff9a3c88;z-index:3;font-size:13px;white-space:nowrap}
+#bar span{padding:2px 6px}
+#hd{position:fixed;left:0;right:0;top:36%;text-align:center;font:800 clamp(40px,10vw,96px)/1 Georgia,serif;letter-spacing:4px;color:#ffd24a;text-shadow:0 0 18px #ff8a00,0 0 40px #ff5200;opacity:0;transition:opacity .5s;pointer-events:none;z-index:2}
+#hd small{display:block;font:500 clamp(14px,2.4vw,22px)/1.6 system-ui;letter-spacing:1px;color:#fff3d0;text-shadow:none}
+</style></head><body>
+<video id="v" playsinline muted></video>
+<canvas id="fx"></canvas>
+<div id="hd">HAPPY DIWALI<small>May your world bloom with light, joy &amp; prosperity</small></div>
+<div id="bar">
+<span>🖐 Burst</span><span>☝ Rocket</span><span>🤏 Sparkler</span><span>✊ Anaar</span><span>🙏 Diwali</span></div>
+<div id="start"><h1>Diwali Hand Fireworks</h1>
+<div id="msg">Use your hands to burst crackers. Allow camera access, then stand back so both hands are visible.</div>
+<button id="go">Start</button></div>
+<script type="module">
+import {HandLandmarker,FilesetResolver} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm";
+const v=document.getElementById('v'),cv=document.getElementById('fx'),c=cv.getContext('2d'),msg=document.getElementById('msg'),hd=document.getElementById('hd');
+let W,H;const rs=()=>{W=cv.width=innerWidth;H=cv.height=innerHeight};rs();addEventListener('resize',rs);
+const PAL=[[255,200,60],[255,120,30],[255,70,110],[120,255,150],[255,255,200],[190,120,255]];
+let P=[];
+const add=(x,y,vx,vy,col,life,sz=2,g=.06)=>P.push({x,y,vx,vy,col,life,max:life,sz,g});
+function burst(x,y,n=90,sp=5){const col=PAL[Math.random()*PAL.length|0];for(let i=0;i<n;i++){const a=Math.random()*6.283,s=sp*(.3+Math.random()*.7);add(x,y,Math.cos(a)*s,Math.sin(a)*s,Math.random()<.2?PAL[Math.random()*6|0]:col,60+Math.random()*30,2+Math.random()*1.5)}}
+function spark(x,y,n=6){for(let i=0;i<n;i++){const a=Math.random()*6.283,s=1+Math.random()*4;add(x,y,Math.cos(a)*s,Math.sin(a)*s-1,[255,210,110],25+Math.random()*20,1.5,.12)}}
+function fountain(x,y){for(let i=0;i<8;i++)add(x,y,(Math.random()-.5)*3,-5-Math.random()*5,PAL[Math.random()*3|0],50+Math.random()*30,2,.18)}
+let rockets=[];
+function rocket(x,y){rockets.push({x,y,vy:-9-Math.random()*3,t:30+Math.random()*15})}
+const now=()=>performance.now();let last={burst:0,rocket:0,hd:0},hdTimer;
+function showHD(){hd.style.opacity=1;clearTimeout(hdTimer);hdTimer=setTimeout(()=>hd.style.opacity=0,2500)}
+// map normalized video coords to screen (object-fit:cover, mirrored)
+function map(l){const vw=v.videoWidth,vh=v.videoHeight,s=Math.max(W/vw,H/vh),ox=(W-vw*s)/2,oy=(H-vh*s)/2;return[W-(l.x*vw*s+ox),l.y*vh*s+oy]}
+const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function fingers(h){const w=h[0];const ext=(t,p)=>d(h[t],w)>d(h[p],w)*1.12;
+return{i:ext(8,6),m:ext(12,10),r:ext(16,14),p:ext(20,18),t:d(h[4],h[17])>d(h[3],h[17])*1.05}}
+const palm=h=>{const ids=[0,5,9,13,17];return{x:ids.reduce((s,i)=>s+h[i].x,0)/5,y:ids.reduce((s,i)=>s+h[i].y,0)/5}};
+function handle(hs){
+ const t=now();let open=[];
+ for(const h of hs){const f=fingers(h),n=+f.i+ +f.m+ +f.r+ +f.p;const pl=map(palm(h)),tip=map(h[8]),th=map(h[4]);
+  const pinch=d(h[4],h[8])<.06;
+  if(pinch){const px=(tip[0]+th[0])/2,py=(tip[1]+th[1])/2;spark(px,py,10)}
+  else if(n===4){open.push(h);if(t-last.burst>450){burst(pl[0],pl[1]);last.burst=t}spark(pl[0],pl[1],3)}
+  else if(f.i&&!f.m&&!f.r&&!f.p){if(t-last.rocket>700){rocket(tip[0],tip[1]);last.rocket=t}}
+  else if(n===0){fountain(pl[0],pl[1])}
+ }
+ if(hs.length===2){const a=palm(hs[0]),b=palm(hs[1]);
+  if(d(a,b)<.2&&fingers(hs[0]).m&&fingers(hs[1]).m){const m=map({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+   if(t-last.hd>600){for(let k=0;k<3;k++)burst(m[0]+(Math.random()-.5)*200,m[1]-Math.random()*160,110,6);last.hd=t}
+   fountain(m[0],m[1]);showHD()}}
+}
+function frame(hl){
+ if(v.readyState>=2&&v.videoWidth){const r=hl.detectForVideo(v,now());if(r.landmarks&&r.landmarks.length)handle(r.landmarks)}
+ c.globalCompositeOperation='destination-out';c.fillStyle='rgba(0,0,0,.22)';c.fillRect(0,0,W,H);
+ c.globalCompositeOperation='lighter';
+ for(const k of rockets){c.fillStyle='#ffd27a';c.beginPath();c.arc(k.x,k.y,3,0,6.3);c.fill();spark(k.x,k.y,2);k.y+=k.vy;k.vy*=.985;if(--k.t<=0){burst(k.x,k.y,130,7);k.dead=1}}
+ rockets=rockets.filter(k=>!k.dead);
+ for(const p of P){p.x+=p.vx;p.y+=p.vy;p.vy+=p.g;p.vx*=.985;p.life--;const a=Math.max(p.life/p.max,0);
+  c.fillStyle=`rgba(${p.col[0]},${p.col[1]},${p.col[2]},${a})`;c.beginPath();c.arc(p.x,p.y,p.sz*(.5+a),0,6.3);c.fill()}
+ P=P.filter(p=>p.life>0);if(P.length>2500)P=P.slice(-2500);
+ requestAnimationFrame(()=>frame(hl));
+}
+document.getElementById('go').onclick=async()=>{
+ const b=document.getElementById('go');b.disabled=true;msg.textContent='Starting camera and hand tracking…';
+ try{
+  v.srcObject=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:1280,height:720},audio:false});await v.play();
+  const fs=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  const hl=await HandLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",delegate:"GPU"},runningMode:"VIDEO",numHands:2});
+  document.getElementById('start').remove();frame(hl);
+ }catch(e){msg.textContent='Could not start: '+(e.message||e)+'. Needs camera permission and an internet connection.';b.disabled=false}
+};
+</script></body></html>
